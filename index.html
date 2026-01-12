@@ -570,7 +570,609 @@
     
     // This part tries to hide the URL bar and menus
     const container = document.documentElement; // Request for the whole page
+    if (container.requestFullscreen) {<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Owl Spirit: Ascension - Falcon Dive Fix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+     body { 
+    margin: 0; 
+    padding: 0;
+    overflow: hidden; 
+    background: #020617; 
+    font-family: 'Inter', sans-serif; 
+    touch-action: none; 
+    width: 100vw;
+    height: 100vh;
+}
+
+#game-container { 
+    position: fixed; 
+    inset: 0;
+    width: 100%; 
+    height: 100%; 
+    transition: background 2s ease; 
+    overflow: hidden; 
+}
+        canvas { display: block; }
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; padding: 20px; color: white; z-index: 10; }
+        .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .bar-fill { height: 100%; transition: width 0.3s ease; }
+        #xp-bar { background: #facc15; width: 0%; }
+        #survival-bar { background: #3b82f6; width: 100%; }
+        
+        #upgrade-menu {
+            position: absolute; inset: 0; background: rgba(2, 6, 23, 0.95);
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 30; pointer-events: auto;
+        }
+        .upgrade-card {
+            background: #1e293b; border: 2px solid #334155; padding: 15px; border-radius: 12px;
+            width: 260px; cursor: pointer; transition: all 0.2s; margin: 8px; text-align: left;
+        }
+        .upgrade-card:hover { border-color: #facc15; transform: translateY(-3px); background: #334155; }
+        
+        #overlay {
+            position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; text-align: center;
+        }
+        .btn { background: #6366f1; color: white; padding: 12px 32px; border-radius: 9999px; font-weight: bold; cursor: pointer; transition: 0.2s; pointer-events: auto; }
+        .btn:hover { background: #4f46e5; transform: scale(1.05); }
+
+        #biome-announcement {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 3rem; font-weight: 900; color: white; text-transform: uppercase;
+            letter-spacing: -2px; pointer-events: none; opacity: 0; transition: opacity 0.5s, transform 0.5s;
+            text-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 15;
+        }
+        #biome-announcement.show { opacity: 1; transform: translate(-50%, -60%); }
+
+        #sandstorm, #blizzard {
+            position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 2s;
+            z-index: 5;
+        }
+        #sandstorm { background: rgba(180, 83, 9, 0.4); filter: blur(4px); }
+        #blizzard { background: rgba(255, 255, 255, 0.5); filter: blur(8px); }
+
+        .objective-ui { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+        
+        #rest-indicator {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(34, 197, 94, 0.2); color: #4ade80; padding: 4px 12px; border-radius: 99px;
+            font-size: 10px; border: 1px solid #22c55e; display: none;
+        }
+
+        #falcon-btn {
+            position: absolute; bottom: 30px; right: 30px; width: 70px; height: 70px;
+            background: rgba(245, 158, 11, 0.3); border: 2px solid #f59e0b; border-radius: 50%;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 10px; pointer-events: auto; cursor: pointer;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); z-index: 40;
+        }
+        #falcon-btn:active { transform: scale(0.9); }
+        #falcon-btn.disabled { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="sandstorm"></div>
+        <div id="blizzard"></div>
+        <div id="biome-announcement">Midnight Forest</div>
+        <div id="rest-indicator">RESTING - RECOVERING ENERGY</div>
+
+        <div id="falcon-btn" onclick="activateFalconDive()">
+            <span class="text-2xl">🦅</span>
+            <span>DIVE (F)</span>
+        </div>
+
+        <div class="ui-layer flex justify-between">
+            <div class="w-56">
+                <div class="flex justify-between text-[10px] font-bold uppercase tracking-widest mb-1">
+                    <span>Survival <span id="survival-label">Stamina</span></span>
+                </div>
+                <div class="bar-bg mb-3"><div id="survival-bar" class="bar-fill"></div></div>
+
+                <div class="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                    <span>Level <span id="lvl">1</span></span>
+                    <span>XP (Gold)</span>
+                </div>
+                <div class="bar-bg"><div id="xp-bar" class="bar-fill"></div></div>
+                
+                <div class="mt-4 flex flex-wrap gap-2" id="ability-slots"></div>
+            </div>
+            
+            <div class="text-right">
+                <div class="text-4xl font-black italic text-yellow-400 leading-none" id="score">0</div>
+                <div class="text-xs font-bold text-slate-400 uppercase mt-2 tracking-widest" id="biome-name">Forest</div>
+            </div>
+        </div>
+
+        <div class="objective-ui">
+            <div id="objective-text">OBJECTIVE: SURVIVE FOREST (0/1000)</div>
+            <div class="w-48 h-1 bg-white/20 mx-auto mt-1 rounded-full"><div id="obj-progress" class="h-full bg-green-400 w-0 transition-all"></div></div>
+        </div>
+
+        <div id="upgrade-menu">
+            <h2 class="text-3xl font-bold text-white mb-6 text-center">EVOLVE YOUR SPIRIT</h2>
+            <div id="upgrade-list" class="flex flex-wrap justify-center"></div>
+        </div>
+
+        <div id="overlay">
+            <h1 class="text-6xl font-black mb-4 text-white tracking-tighter">OWL ASCENSION</h1>
+            <p class="text-indigo-200 mb-8 max-w-sm italic">Collect gold to level up and buy the "Falcon Dive" ability!</p>
+            <button class="btn" onclick="startGame()">BEGIN FLIGHT</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        let audioCtx, animationFrameId;
+
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+        function playSynthSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+            switch(type) {
+                case 'flap': osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.1); gain.gain.setValueAtTime(0.05, now); osc.start(); osc.stop(now + 0.1); break;
+                case 'coin': osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1); gain.gain.setValueAtTime(0.05, now); osc.start(); osc.stop(now + 0.1); break;
+                case 'freeze': osc.type = 'sine'; osc.frequency.setValueAtTime(800, now); osc.frequency.linearRampToValueAtTime(100, now + 1); gain.gain.setValueAtTime(0.1, now); osc.start(); osc.stop(now + 1); break;
+                case 'falcon': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.5); gain.gain.setValueAtTime(0.1, now); osc.start(); osc.stop(now + 0.5); break;
+                case 'eagle': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(600, now + 0.2); gain.gain.setValueAtTime(0.05, now); osc.start(); osc.stop(now + 0.2); break;
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const BIOMES = {
+            forest: { id: 'forest', name: 'Midnight Forest', bg: '#020617', mountain: '#0f172a', survival: 'Stamina', goal: 1000 },
+            desert: { id: 'desert', name: 'Crimson Desert', bg: '#450a0a', mountain: '#7f1d1d', survival: 'Hydration', goal: 3000 },
+            tundra: { id: 'tundra', name: 'Frost Tundra', bg: '#083344', mountain: '#164e63', survival: 'Warmth', goal: 6000 },
+            hogwarts: { id: 'hogwarts', name: 'Magic Academy', bg: '#1e1b4b', mountain: '#312e81', survival: 'Magic', goal: 10000 }
+        };
+
+        let state = {
+            gameActive: false, score: 0, lvl: 1, xp: 0, xpToNext: 100,
+            survival: 100, speed: 4, frameCount: 0, frozen: 0, harryMet: false,
+            isResting: false,
+            falconTimer: 0,
+            abilities: { dash: false, shrink: false, goggles: false, cooling: false, thermal: false, cryo: false, falcon: false }
+        };
+
+        const owl = { x: 0, y: 0, vy: 0, size: 1, targetSize: 1, wingCycle: 0 };
+        let obstacles = [], items = [], stars = [], enemies = [];
+        let currentBiome = BIOMES.forest;
+
+       function resize() {
+    // Uses screen dimensions to ensure it takes up the FULL display
+    canvas.width = window.innerWidth || screen.width;
+    canvas.height = window.innerHeight || screen.height;
+    owl.x = canvas.width * 0.2;
+}
+        window.addEventListener('resize', resize);
+
+        function init() {
+            resize();
+            createStars();
+            state.gameActive = true;
+            state.score = 0; state.lvl = 1; state.xp = 0; state.survival = 100; state.frozen = 0;
+            state.speed = 4; state.harryMet = false; state.isResting = false; state.falconTimer = 0;
+            Object.keys(state.abilities).forEach(k => state.abilities[k] = false);
+            owl.y = canvas.height / 2; owl.vy = 0; owl.size = 1; owl.targetSize = 1;
+            obstacles = []; items = []; enemies = [];
+            currentBiome = BIOMES.forest;
+            updateUI();
+            updateAbilityIcons();
+        }
+
+        function createStars() {
+            stars = Array.from({length: 100}, () => ({
+                x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                size: Math.random() * 2, speed: Math.random() * 0.5 + 0.1
+            }));
+        }
+
+        function activateFalconDive() {
+            if (state.abilities.falcon && state.survival > 50 && state.falconTimer <= 0 && state.gameActive) {
+                state.falconTimer = 300; 
+                state.survival = 100; 
+                state.abilities.falcon = false; 
+                playSynthSound('falcon');
+                updateAbilityIcons();
+            }
+        }
+
+        function update() {
+            if (!state.gameActive) return;
+            if (state.frozen > 0) state.frozen--;
+            
+            const isFalcon = state.falconTimer > 0;
+            if (isFalcon) state.falconTimer--;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            checkBiomeLogic();
+            drawOwlSight();
+
+            ctx.fillStyle = "#fff";
+            stars.forEach(s => {
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+                let moveSpeed = state.speed;
+                if (isFalcon) moveSpeed *= 3.5;
+                if (state.frozen === 0) s.x -= s.speed * moveSpeed;
+                if (s.x < 0) s.x = canvas.width;
+            });
+
+            if (state.frozen === 0) {
+                if (isFalcon) {
+                    owl.vy += 0.05;
+                    owl.y += owl.vy * 0.5;
+                } else {
+                    owl.vy += 0.25;
+                    owl.y += owl.vy;
+                }
+                
+                owl.wingCycle += (isFalcon ? 0.6 : 0.15);
+
+                const groundBuffer = canvas.height * 0.85;
+                if (owl.y > groundBuffer && owl.vy >= 0 && !isFalcon) {
+                    state.isResting = true;
+                    state.survival = Math.min(100, state.survival + 0.2); 
+                    document.getElementById('rest-indicator').style.display = 'block';
+                } else {
+                    state.isResting = false;
+                    document.getElementById('rest-indicator').style.display = 'none';
+                    if (!isFalcon) {
+                        let drainRate = 0.05;
+                        if (owl.y > canvas.height * 0.6) drainRate = 0.02; 
+                        state.survival -= drainRate * (state.abilities.cooling ? 0.5 : 1);
+                    }
+                }
+
+                if ((owl.y < 0 || owl.y > canvas.height || state.survival <= 0) && !isFalcon) gameOver();
+
+                state.frameCount++;
+                if (state.frameCount % (isFalcon ? 15 : 100) === 0) spawnObstacle();
+                if (state.frameCount % 40 === 0) spawnCoin();
+            }
+
+            obstacles.forEach((ob, i) => {
+                ctx.fillStyle = currentBiome.mountain;
+                if (currentBiome.id === 'hogwarts') {
+                    ctx.fillStyle = "#fef08a";
+                    ctx.fillRect(ob.x, ob.type === 'top' ? 0 : canvas.height - ob.h, ob.w, ob.h);
+                } else {
+                    ctx.beginPath();
+                    if (ob.type === 'top') {
+                        ctx.moveTo(ob.x, 0); ctx.lineTo(ob.x + ob.w/2, ob.h); ctx.lineTo(ob.x + ob.w, 0);
+                    } else {
+                        ctx.moveTo(ob.x, canvas.height); ctx.lineTo(ob.x + ob.w/2, canvas.height - ob.h); ctx.lineTo(ob.x + ob.w, canvas.height);
+                    }
+                    ctx.fill();
+                }
+                if (state.frozen === 0) {
+                    ob.x -= isFalcon ? state.speed * 4.5 : state.speed;
+                }
+                if (!isFalcon && checkCollision(owl.x, owl.y, 15 * owl.size, ob)) handleHit(i);
+            });
+
+            enemies.forEach((e, i) => {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.fillStyle = "#f87171";
+                ctx.beginPath(); ctx.moveTo(-25, 0); ctx.lineTo(0, -15); ctx.lineTo(25, 0); ctx.lineTo(0, 15); ctx.fill();
+                ctx.restore();
+                if (state.frozen === 0) {
+                    e.x -= (isFalcon ? state.speed * 4.5 : state.speed) + 2.5;
+                    e.y += (owl.y - e.y) * 0.025;
+                }
+                if (!isFalcon && Math.hypot(e.x - owl.x, e.y - owl.y) < 30 * owl.size) handleHit(i, true);
+            });
+
+            items.forEach((it, i) => {
+                ctx.fillStyle = it.type === 'gold' ? '#facc15' : '#3b82f6';
+                ctx.shadowBlur = 10; ctx.shadowColor = it.type === 'gold' ? '#fbbf24' : '#60a5fa';
+                ctx.beginPath(); ctx.arc(it.x, it.y, 7, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+                if (state.frozen === 0) it.x -= isFalcon ? state.speed * 4.5 : state.speed;
+                if (Math.hypot(it.x - owl.x, it.y - owl.y) < (isFalcon ? 100 : 40)) {
+                    if (it.type === 'gold') {
+                        state.xp += 35;
+                        checkLevel();
+                        playSynthSound('coin');
+                    } else {
+                        state.survival = Math.min(100, state.survival + 20);
+                    }
+                    items.splice(i, 1);
+                }
+            });
+
+            if (currentBiome.id === 'hogwarts' && state.score > 9500 && !state.harryMet) {
+                drawHarry(canvas.width - 200, canvas.height/2);
+            }
+
+            drawOwl(isFalcon);
+            updateUI();
+            animationFrameId = requestAnimationFrame(update);
+        }
+
+        function drawHarry(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = "#1e1b4b"; ctx.fillRect(-20, 0, 40, 60);
+            ctx.fillStyle = "#ffdbac"; ctx.beginPath(); ctx.arc(0, -10, 15, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#450a0a"; ctx.beginPath(); ctx.moveTo(-5, -15); ctx.lineTo(0, -10); ctx.lineTo(5, -15); ctx.stroke();
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.strokeRect(-8, -12, 6, 6); ctx.strokeRect(2, -12, 6, 6);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 16px Inter"; ctx.fillText("Harry: Welcome home, Hedwig!", -100, -40);
+            ctx.restore();
+            if (state.frozen === 0) state.speed = 0.5;
+        }
+
+        function drawOwlSight() {
+            const nextOb = obstacles.find(o => o.x > owl.x) || enemies.find(e => e.x > owl.x);
+            if (nextOb && (state.abilities.thermal || state.abilities.goggles)) {
+                ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
+                ctx.beginPath(); ctx.moveTo(owl.x, owl.y);
+                ctx.lineTo(nextOb.x, nextOb.y || (nextOb.type === 'top' ? nextOb.h + 50 : canvas.height - nextOb.h - 50));
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+        }
+
+  function spawnObstacle() {
+    const b = currentBiome;
+    
+    // Create a width that is 15% of the screen (min 40px, max 100px)
+    const responsiveWidth = Math.min(Math.max(canvas.width * 0.15, 40), 100);
+    
+    // Create a height that never blocks more than 60% of the screen
+    // This leaves a 40% "Gap" for the owl to fly through!
+    const maxHeight = canvas.height * 0.6;
+    const responsiveHeight = 100 + Math.random() * (maxHeight - 100);
+
+    if (b.id === 'desert') {
+        // Keeps enemies in the middle 80% of the screen so they don't hide
+        enemies.push({ x: canvas.width + 100, y: 50 + Math.random() * (canvas.height - 100) });
+        playSynthSound('eagle');
+    } else {
+        obstacles.push({ 
+            x: canvas.width, 
+            w: responsiveWidth, 
+            h: responsiveHeight, 
+            type: Math.random() > 0.5 ? 'top' : 'bottom' 
+        });
+    }
+}
+
+        function spawnCoin() {
+            const type = (currentBiome.id === 'desert' && Math.random() > 0.7) ? 'water' : 'gold';
+            items.push({ x: canvas.width, y: 100 + Math.random() * (canvas.height - 200), type });
+        }
+
+        function drawOwl(isFalcon) {
+            ctx.save();
+            ctx.translate(owl.x, owl.y);
+            
+            if (isFalcon) {
+                // Sleek Falcon Model
+                ctx.shadowBlur = 40; ctx.shadowColor = "rgba(245, 158, 11, 0.8)";
+                
+                // Trail
+                const trailGrad = ctx.createLinearGradient(-100, 0, 0, 0);
+                trailGrad.addColorStop(0, "transparent");
+                trailGrad.addColorStop(1, "rgba(245, 158, 11, 0.4)");
+                ctx.fillStyle = trailGrad;
+                ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(-120, 0); ctx.lineTo(0, 15); ctx.fill();
+
+                ctx.rotate(owl.vy * 0.05);
+                ctx.fillStyle = "#fbbf24";
+                
+                // Aerodynamic Body
+                ctx.beginPath();
+                ctx.moveTo(40, 0); // Beak
+                ctx.bezierCurveTo(20, -15, -20, -12, -40, 0); // Top
+                ctx.bezierCurveTo(-20, 12, 20, 15, 40, 0); // Bottom
+                ctx.fill();
+
+                // Sharp Tucked Wings
+                ctx.fillStyle = "#d97706";
+                ctx.beginPath();
+                ctx.moveTo(-10, -5); ctx.lineTo(-30, -25); ctx.lineTo(0, -5); ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-10, 5); ctx.lineTo(-30, 25); ctx.lineTo(0, 5); ctx.fill();
+
+                // Eye
+                ctx.fillStyle = "white";
+                ctx.beginPath(); ctx.arc(28, -3, 2.5, 0, Math.PI*2); ctx.fill();
+            } else {
+                ctx.scale(owl.size, owl.size);
+                ctx.rotate(owl.vy * 0.1);
+                ctx.fillStyle = "#cbd5e1";
+                let wH = Math.sin(owl.wingCycle) * 15;
+                if (state.isResting) wH = 5; 
+                ctx.beginPath(); ctx.ellipse(-18, 0, 10, 15 + wH, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(18, 0, 10, 15 + wH, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-10, -15); ctx.lineTo(-18, -25); ctx.lineTo(-3, -18); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(10, -15); ctx.lineTo(18, -25); ctx.lineTo(3, -18); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(0, 0, 15, 20, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(0, -5, 12, 10, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.arc(-6, -6, 4, 0, Math.PI*2); ctx.arc(6, -6, 4, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-6, -6, 1.5, 0, Math.PI*2); ctx.arc(6, -6, 1.5, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+            if (owl.size !== owl.targetSize) owl.size += (owl.targetSize - owl.size) * 0.1;
+        }
+
+        function checkBiomeLogic() {
+            let next = BIOMES.forest;
+            if (state.score >= BIOMES.hogwarts.goal) next = BIOMES.hogwarts;
+            else if (state.score >= BIOMES.tundra.goal) next = BIOMES.tundra;
+            else if (state.score >= BIOMES.desert.goal) next = BIOMES.desert;
+
+            if (next.id !== currentBiome.id) {
+                currentBiome = next;
+                document.getElementById('game-container').style.background = currentBiome.bg;
+                document.getElementById('biome-name').innerText = currentBiome.name;
+                document.getElementById('survival-label').innerText = currentBiome.survival;
+                const ann = document.getElementById('biome-announcement');
+                ann.innerText = currentBiome.name; ann.classList.add('show');
+                setTimeout(() => ann.classList.remove('show'), 2000);
+                document.getElementById('sandstorm').style.opacity = (next.id === 'desert' && !state.abilities.goggles) ? 1 : 0;
+                document.getElementById('blizzard').style.opacity = (next.id === 'tundra' && !state.abilities.thermal) ? 1 : 0;
+            }
+            state.score += (state.falconTimer > 0 ? 6 : 1);
+        }
+
+        function checkLevel() {
+            if (state.xp >= state.xpToNext) {
+                state.xp = 0; state.lvl++; state.xpToNext *= 1.3;
+                showUpgradeMenu();
+            }
+        }
+
+        function showUpgradeMenu() {
+            state.gameActive = false;
+            const menu = document.getElementById('upgrade-menu');
+            const list = document.getElementById('upgrade-list');
+            menu.style.display = 'flex';
+            list.innerHTML = "";
+            
+            const pool = [];
+            if (!state.abilities.falcon) pool.push({ id: 'falcon', name: 'Falcon Dive', icon: '🦅', desc: '5s Rocket speed & Full Heal (Needs >50% stamina)' });
+            if (!state.abilities.shrink) pool.push({ id: 'shrink', name: 'Spirit Form', icon: '🤏', desc: 'Permanently smaller' });
+            if (!state.abilities.cryo) pool.push({ id: 'cryo', name: 'Time Freeze', icon: '🧊', desc: 'Auto-saves from one hit' });
+            
+            if (currentBiome.id === 'desert' && !state.abilities.goggles) pool.push({ id: 'goggles', name: 'Sand Goggles', icon: '🥽', desc: 'See through sandstorms' });
+            if (currentBiome.id === 'tundra' && !state.abilities.thermal) pool.push({ id: 'thermal', name: 'Magic Eye', icon: '👁️', desc: 'See in blizzards' });
+            
+            if (pool.length === 0) pool.push({ id: 'heal', name: 'Instant Rest', icon: '🩹', desc: 'Full survival recovery' });
+
+            pool.slice(0, 3).forEach(a => {
+                const card = document.createElement('div');
+                card.className = "upgrade-card";
+                card.innerHTML = `<div class="text-2xl">${a.icon}</div><div class="font-bold">${a.name}</div><div class="text-[10px] opacity-60">${a.desc}</div>`;
+                card.onclick = () => {
+                    if (a.id === 'heal') {
+                        state.survival = 100;
+                    } else {
+                        state.abilities[a.id] = true;
+                        if (a.id === 'shrink') owl.targetSize = 0.6;
+                    }
+                    menu.style.display = 'none'; state.gameActive = true; 
+                    updateAbilityIcons(); 
+                    update();
+                };
+                list.appendChild(card);
+            });
+        }
+
+        function updateAbilityIcons() {
+            const container = document.getElementById('ability-slots'); 
+            container.innerHTML = "";
+            const icons = { falcon: '🦅', shrink: '🤏', goggles: '🥽', cooling: '❄️', thermal: '👁️', cryo: '🧊' };
+            Object.keys(state.abilities).forEach(k => {
+                if (state.abilities[k]) {
+                    const el = document.createElement('div'); 
+                    el.className = "w-8 h-8 rounded bg-white/10 flex items-center justify-center text-lg border border-white/20";
+                    el.innerText = icons[k]; 
+                    container.appendChild(el);
+                }
+            });
+            document.getElementById('falcon-btn').style.display = state.abilities.falcon ? 'flex' : 'none';
+        }
+
+        function updateUI() {
+            document.getElementById('xp-bar').style.width = `${(state.xp / state.xpToNext) * 100}%`;
+            document.getElementById('survival-bar').style.width = `${state.survival}%`;
+            document.getElementById('score').innerText = Math.floor(state.score);
+            document.getElementById('lvl').innerText = state.lvl;
+            const prog = Math.min(100, (state.score / currentBiome.goal) * 100);
+            document.getElementById('obj-progress').style.width = `${prog}%`;
+            document.getElementById('objective-text').innerText = `OBJECTIVE: REACH ${currentBiome.name} (${Math.floor(state.score)}/${currentBiome.goal})`;
+            
+            const fBtn = document.getElementById('falcon-btn');
+            if (state.survival <= 50 || state.falconTimer > 0) {
+                fBtn.classList.add('disabled');
+            } else {
+                fBtn.classList.remove('disabled');
+            }
+        }
+
+        function handleHit(index, isEnemy = false) {
+            if (state.falconTimer > 0) return;
+            if (state.abilities.cryo) {
+                state.frozen = 120; 
+                state.abilities.cryo = false;
+                playSynthSound('freeze');
+                if (isEnemy) enemies.splice(index, 1); else obstacles.splice(index, 1);
+                updateAbilityIcons();
+                return;
+            }
+            gameOver();
+        }
+
+        function checkCollision(ox, oy, or, ob) {
+    // If the owl is not horizontally hitting the obstacle, stop here
+    if (ox + or < ob.x || ox - or > ob.x + ob.w) return false;
+    
+    // On mobile (small screens), we give the player a 5px "Mercy Buffer"
+    const buffer = (canvas.width < 500) ? 5 : 0;
+    
+    if (ob.type === 'top') {
+        return (oy - or + buffer < ob.h);
+    } else {
+        return (oy + or - buffer > canvas.height - ob.h);
+    }
+}
+
+        function flap() { 
+            if (state.gameActive) { 
+                owl.vy = (state.falconTimer > 0 ? -1.5 : -5.5); 
+                playSynthSound('flap'); 
+            } 
+        }
+
+       function startGame() { 
+    initAudio(); 
+    
+    // This part tries to hide the URL bar and menus
+    const container = document.documentElement; // Request for the whole page
     if (container.requestFullscreen) {
+        container.requestFullscreen().then(() => {
+            // This part tries to flip the screen to Landscape
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(err => console.log("Orientation lock not supported."));
+            }
+        });
+    } else if (container.webkitRequestFullscreen) { /* Compatibility for Safari/iOS */
+        container.webkitRequestFullscreen();
+    }
+
+    document.getElementById('overlay').style.display = 'none'; 
+    init(); 
+    update(); 
+}
+
+        function gameOver() { 
+            state.gameActive = false; cancelAnimationFrame(animationFrameId); 
+            document.getElementById('overlay').style.display = 'flex';
+            document.getElementById('overlay').innerHTML = `<h1 class="text-4xl font-bold text-red-500 mb-4 tracking-tighter">ASCENSION FAILED</h1><p class="mb-4 text-white italic opacity-80">Score: ${Math.floor(state.score)}</p><button class="btn" onclick="startGame()">TRY AGAIN</button>`;
+        }
+
+        window.addEventListener('mousedown', flap);
+        window.addEventListener('keydown', e => { 
+            if (e.code === 'Space') flap(); 
+            if (e.code === 'KeyF') activateFalconDive();
+        });
+        resize();
+    </script>
+</body>
+</html>
         container.requestFullscreen().then(() => {
             // This part tries to flip the screen to Landscape
             if (screen.orientation && screen.orientation.lock) {
