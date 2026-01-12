@@ -6,8 +6,25 @@
     <title>Owl Spirit: Ascension - Falcon Dive Fix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #020617; font-family: 'Inter', sans-serif; touch-action: none; }
-        #game-container { position: relative; width: 100vw; height: 100vh; transition: background 2s ease; overflow: hidden; }
+     body { 
+    margin: 0; 
+    padding: 0;
+    overflow: hidden; 
+    background: #020617; 
+    font-family: 'Inter', sans-serif; 
+    touch-action: none; 
+    width: 100vw;
+    height: 100vh;
+}
+
+#game-container { 
+    position: fixed; 
+    inset: 0;
+    width: 100%; 
+    height: 100%; 
+    transition: background 2s ease; 
+    overflow: hidden; 
+}
         canvas { display: block; }
         .ui-layer { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; padding: 20px; color: white; z-index: 10; }
         .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 4px; }
@@ -161,11 +178,12 @@
         let obstacles = [], items = [], stars = [], enemies = [];
         let currentBiome = BIOMES.forest;
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            owl.x = canvas.width * 0.2;
-        }
+       function resize() {
+    // Uses screen dimensions to ensure it takes up the FULL display
+    canvas.width = window.innerWidth || screen.width;
+    canvas.height = window.innerHeight || screen.height;
+    owl.x = canvas.width * 0.2;
+}
         window.addEventListener('resize', resize);
 
         function init() {
@@ -547,12 +565,26 @@
             } 
         }
 
-        function startGame() { 
-            initAudio(); 
-            document.getElementById('overlay').style.display = 'none'; 
-            init(); 
-            update(); 
-        }
+       function startGame() { 
+    initAudio(); 
+    
+    // This part tries to hide the URL bar and menus
+    const container = document.documentElement; // Request for the whole page
+    if (container.requestFullscreen) {
+        container.requestFullscreen().then(() => {
+            // This part tries to flip the screen to Landscape
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(err => console.log("Orientation lock not supported."));
+            }
+        });
+    } else if (container.webkitRequestFullscreen) { /* Compatibility for Safari/iOS */
+        container.webkitRequestFullscreen();
+    }
+
+    document.getElementById('overlay').style.display = 'none'; 
+    init(); 
+    update(); 
+}
 
         function gameOver() { 
             state.gameActive = false; cancelAnimationFrame(animationFrameId); 
