@@ -334,15 +334,30 @@
             }
         }
 
-        function spawnObstacle() {
-            const b = currentBiome;
-            if (b.id === 'desert') {
-                enemies.push({ x: canvas.width + 100, y: Math.random() * canvas.height });
-                playSynthSound('eagle');
-            } else {
-                obstacles.push({ x: canvas.width, w: 100, h: 150 + Math.random() * 250, type: Math.random() > 0.5 ? 'top' : 'bottom' });
-            }
-        }
+  function spawnObstacle() {
+    const b = currentBiome;
+    
+    // Create a width that is 15% of the screen (min 40px, max 100px)
+    const responsiveWidth = Math.min(Math.max(canvas.width * 0.15, 40), 100);
+    
+    // Create a height that never blocks more than 60% of the screen
+    // This leaves a 40% "Gap" for the owl to fly through!
+    const maxHeight = canvas.height * 0.6;
+    const responsiveHeight = 100 + Math.random() * (maxHeight - 100);
+
+    if (b.id === 'desert') {
+        // Keeps enemies in the middle 80% of the screen so they don't hide
+        enemies.push({ x: canvas.width + 100, y: 50 + Math.random() * (canvas.height - 100) });
+        playSynthSound('eagle');
+    } else {
+        obstacles.push({ 
+            x: canvas.width, 
+            w: responsiveWidth, 
+            h: responsiveHeight, 
+            type: Math.random() > 0.5 ? 'top' : 'bottom' 
+        });
+    }
+}
 
         function spawnCoin() {
             const type = (currentBiome.id === 'desert' && Math.random() > 0.7) ? 'water' : 'gold';
@@ -512,9 +527,18 @@
         }
 
         function checkCollision(ox, oy, or, ob) {
-            if (ox + or < ob.x || ox - or > ob.x + ob.w) return false;
-            return ob.type === 'top' ? (oy - or < ob.h) : (oy + or > canvas.height - ob.h);
-        }
+    // If the owl is not horizontally hitting the obstacle, stop here
+    if (ox + or < ob.x || ox - or > ob.x + ob.w) return false;
+    
+    // On mobile (small screens), we give the player a 5px "Mercy Buffer"
+    const buffer = (canvas.width < 500) ? 5 : 0;
+    
+    if (ob.type === 'top') {
+        return (oy - or + buffer < ob.h);
+    } else {
+        return (oy + or - buffer > canvas.height - ob.h);
+    }
+}
 
         function flap() { 
             if (state.gameActive) { 
